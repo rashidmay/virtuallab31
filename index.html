@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Virtual Lab TPB - Demo</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1>Virtual Lab TPB - Demo</h1>
+    <nav>
+      <button id="btn-signin" class="btn">Masuk (Google)</button>
+      <button id="btn-signout" class="btn hidden">Keluar</button>
+      <span id="user-info" class="user-info">Tidak masuk</span>
+    </nav>
+  </header>
+
+  <main>
+    <section class="intro">
+      <h2>Modul Pembelajaran</h2>
+      <p>Pilih modul: Fisika </p>
+    </section>
+
+    <section class="modules">
+      <aside class="module-list" aria-label="Daftar modul">
+        <button class="module-btn" data-module="physics">Gerak Proyektil </button>
+      </aside>
+
+      <section id="module-area" class="module-area" aria-live="polite">
+        <!-- Module content injected here -->
+        <article id="welcome">
+          <h3>Selamat datang</h3>
+          <p>Pilih modul di kiri untuk memulai eksperimen interaktif. Progress akan tersimpan jika Anda masuk.</p>
+        </article>
+      </section>
+    </section>
+
+    <!-- Progress panel removed: progress now auto-saved to Firebase when signed in -->
+  </main>
+
+  <footer>
+    <p>Demo Virtual Lab TPB — Frontend statis + Firebase (Auth & Firestore)</p>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
