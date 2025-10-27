@@ -523,7 +523,7 @@ function applyUserPreferences(){
 async function saveProgress(moduleKey, data){
   if(!firebaseLoaded) return console.warn('Firebase not loaded');
   // prefer explicit currentUser variable, but fall back to auth.currentUser to avoid timing/race issues
-  const uid = (currentUser && currentUser.uid) || (auth && auth.currentUser && auth.currentUser.uid);
+  const uid = ((typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || (auth && auth.currentUser && auth.currentUser.uid));
   if(!uid) return console.warn('Not signed in (no uid)');
   const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
   const userRef = doc(db, 'users', uid);
@@ -555,8 +555,8 @@ async function saveProgress(moduleKey, data){
 
 async function loadProgress(){
   if(!firebaseLoaded) return alert('Firebase belum terhubung');
-  if(!currentUser) return alert('Silakan masuk terlebih dahulu');
-  const uid = currentUser.uid;
+  const uid = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || (auth && auth.currentUser && auth.currentUser.uid);
+  if(!uid) return alert('Silakan masuk terlebih dahulu');
   // If offline, fall back to cached local copy
   if(!navigator.onLine){
     const cached = readFromLocalCache('cached_progress_'+uid);
