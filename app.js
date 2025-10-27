@@ -92,10 +92,11 @@ async function init(){
   };
 
   // Attach auth handlers (guard each element)
-  if(btnSignIn){ btnSignIn.addEventListener('click', safeSignIn); } else console.warn('btnSignIn element not found');
-  if(btnSignOut){ btnSignOut.addEventListener('click', safeSignOut); } else console.warn('btnSignOut element not found');
+  try{
+    if(btnSignIn){ btnSignIn.addEventListener('click', safeSignIn); } else console.warn('btnSignIn element not found');
+    if(btnSignOut){ btnSignOut.addEventListener('click', safeSignOut); } else console.warn('btnSignOut element not found');
 
-  if(firebaseLoaded){
+    if(firebaseLoaded){
     // subscribe to auth state changes
     const { onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js');
     onAuthStateChanged(auth, user =>{
@@ -119,11 +120,15 @@ async function init(){
     if(userInfo) userInfo.textContent = 'Firebase tidak tersedia';
     if(btnSignOut) btnSignOut.classList.add('hidden');
   }
+  }catch(e){ console.error('Error wiring auth handlers', e, { btnSignIn, btnSignOut, userInfo }); }
 
   // Module switching
-  if(moduleBtns && moduleBtns.length && moduleBtns.forEach) {
-    moduleBtns.forEach(b => { if(b) b.addEventListener('click', ()=> loadModule(b.dataset.module)); });
-  } else console.warn('moduleBtns not found or empty');
+  try{
+    moduleBtns = moduleBtns || [];
+    if(moduleBtns && moduleBtns.length && moduleBtns.forEach) {
+      moduleBtns.forEach(b => { if(b) b.addEventListener('click', ()=> loadModule(b.dataset.module)); });
+    } else console.warn('moduleBtns not found or empty');
+  }catch(e){ console.error('Error wiring module buttons', e, { moduleBtns }); }
 
   function loadModule(name){
     // Clear module area
@@ -132,18 +137,20 @@ async function init(){
   }
 
   // Attach save/load handlers (safe wrappers)
-  if(btnSaveLocal){
-    btnSaveLocal.addEventListener('click', ()=>{
-      if(!firebaseLoaded) return alert('Masuk untuk menyimpan ke Firestore (Firebase belum terhubung)');
-      (async ()=>{
-        const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
-        try{ await setDoc(doc(db, 'users', currentUser && currentUser.uid), { progress: localState, lastSaved: Date.now() }, { merge: true }); alert('Disimpan.'); }
-        catch(e){ console.error(e); alert('Gagal simpan'); }
-      })();
-    });
-  } else console.warn('btnSaveLocal not found');
+  try{
+    if(btnSaveLocal){
+      btnSaveLocal.addEventListener('click', ()=>{
+        if(!firebaseLoaded) return alert('Masuk untuk menyimpan ke Firestore (Firebase belum terhubung)');
+        (async ()=>{
+          const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
+          try{ await setDoc(doc(db, 'users', currentUser && currentUser.uid), { progress: localState, lastSaved: Date.now() }, { merge: true }); alert('Disimpan.'); }
+          catch(e){ console.error(e); alert('Gagal simpan'); }
+        })();
+      });
+    } else console.warn('btnSaveLocal not found');
 
-  if(btnLoadLocal){ btnLoadLocal.addEventListener('click', ()=> loadProgress()); } else console.warn('btnLoadLocal not found');
+    if(btnLoadLocal){ btnLoadLocal.addEventListener('click', ()=> loadProgress()); } else console.warn('btnLoadLocal not found');
+  }catch(e){ console.error('Error wiring save/load buttons', e, { btnSaveLocal, btnLoadLocal }); }
 
   // Kick off by showing welcome
   updateProgressUI();
