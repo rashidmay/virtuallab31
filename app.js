@@ -62,15 +62,19 @@ let localState = { physics: {} };
 // We'll initialize Firebase (if possible) then wire UI. Use an init wrapper so a failed
 // dynamic import won't prevent the rest of the UI from working.
 async function init(){
-  // ensure DOM refs are captured after DOM is ready
-  btnSignIn = document.getElementById('btn-signin');
-  btnSignOut = document.getElementById('btn-signout');
-  userInfo = document.getElementById('user-info');
-  moduleArea = document.getElementById('module-area');
-  moduleBtns = document.querySelectorAll('.module-btn');
-  progressJson = document.getElementById('progress-json');
-  btnSaveLocal = document.getElementById('btn-save-local');
-  btnLoadLocal = document.getElementById('btn-load-local');
+  // ensure DOM refs are captured after DOM is ready (guard every lookup)
+  try{
+    btnSignIn = document.getElementById('btn-signin');
+    btnSignOut = document.getElementById('btn-signout');
+    userInfo = document.getElementById('user-info');
+    moduleArea = document.getElementById('module-area');
+    moduleBtns = document.querySelectorAll('.module-btn');
+    progressJson = document.getElementById('progress-json');
+    btnSaveLocal = document.getElementById('btn-save-local');
+    btnLoadLocal = document.getElementById('btn-load-local');
+  }catch(e){
+    console.warn('Failed to capture some DOM refs during init', e);
+  }
 
   const modules = await tryInitFirebase();
 
@@ -87,9 +91,9 @@ async function init(){
     catch(e){ console.error(e); }
   };
 
-  // Attach auth handlers
-  btnSignIn.addEventListener('click', safeSignIn);
-  btnSignOut.addEventListener('click', safeSignOut);
+  // Attach auth handlers (guard each element)
+  if(btnSignIn){ btnSignIn.addEventListener('click', safeSignIn); } else console.warn('btnSignIn element not found');
+  if(btnSignOut){ btnSignOut.addEventListener('click', safeSignOut); } else console.warn('btnSignOut element not found');
 
   if(firebaseLoaded){
     // subscribe to auth state changes
@@ -97,24 +101,29 @@ async function init(){
     onAuthStateChanged(auth, user =>{
       if(user){
         currentUser = user;
-        userInfo.textContent = user.displayName || user.email;
-        btnSignIn.classList.add('hidden'); btnSignOut.classList.remove('hidden');
+        if(userInfo) userInfo.textContent = user.displayName || user.email;
+        if(btnSignIn) btnSignIn.classList.add('hidden');
+        if(btnSignOut) btnSignOut.classList.remove('hidden');
         // Automatically load saved preferences for this user
         try{ loadProgress(); }catch(e){ console.warn('Auto-load progress failed', e); }
       }
       else{
         currentUser = null;
-        userInfo.textContent = 'Tidak masuk'; btnSignIn.classList.remove('hidden'); btnSignOut.classList.add('hidden');
+        if(userInfo) userInfo.textContent = 'Tidak masuk';
+        if(btnSignIn) btnSignIn.classList.remove('hidden');
+        if(btnSignOut) btnSignOut.classList.add('hidden');
       }
     });
   } else {
     // If Firebase not loaded, show offline hints
-    userInfo.textContent = 'Firebase tidak tersedia';
-    btnSignOut.classList.add('hidden');
+    if(userInfo) userInfo.textContent = 'Firebase tidak tersedia';
+    if(btnSignOut) btnSignOut.classList.add('hidden');
   }
 
   // Module switching
-  moduleBtns.forEach(b => b.addEventListener('click', ()=> loadModule(b.dataset.module)));
+  if(moduleBtns && moduleBtns.length && moduleBtns.forEach) {
+    moduleBtns.forEach(b => { if(b) b.addEventListener('click', ()=> loadModule(b.dataset.module)); });
+  } else console.warn('moduleBtns not found or empty');
 
   function loadModule(name){
     // Clear module area
@@ -123,15 +132,18 @@ async function init(){
   }
 
   // Attach save/load handlers (safe wrappers)
-  btnSaveLocal.addEventListener('click', ()=>{
-    if(!firebaseLoaded) return alert('Masuk untuk menyimpan ke Firestore (Firebase belum terhubung)');
-    const userRef = (async ()=>{
-      const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
-      try{ await setDoc(doc(db, 'users', currentUser.uid), { progress: localState, lastSaved: Date.now() }, { merge: true }); alert('Disimpan.'); }
-      catch(e){ console.error(e); alert('Gagal simpan'); }
-    })();
-  });
-  btnLoadLocal.addEventListener('click', ()=> loadProgress());
+  if(btnSaveLocal){
+    btnSaveLocal.addEventListener('click', ()=>{
+      if(!firebaseLoaded) return alert('Masuk untuk menyimpan ke Firestore (Firebase belum terhubung)');
+      (async ()=>{
+        const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
+        try{ await setDoc(doc(db, 'users', currentUser && currentUser.uid), { progress: localState, lastSaved: Date.now() }, { merge: true }); alert('Disimpan.'); }
+        catch(e){ console.error(e); alert('Gagal simpan'); }
+      })();
+    });
+  } else console.warn('btnSaveLocal not found');
+
+  if(btnLoadLocal){ btnLoadLocal.addEventListener('click', ()=> loadProgress()); } else console.warn('btnLoadLocal not found');
 
   // Kick off by showing welcome
   updateProgressUI();
