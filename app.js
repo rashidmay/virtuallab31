@@ -125,6 +125,8 @@ let localState = { physics: {} };
 
   // Kick off by showing welcome
   updateProgressUI();
+  // render a small debug panel for cache/queue/uid information
+  renderDebugPanel();
 
   // (POV control moved into physics module UI)
 
@@ -376,6 +378,65 @@ async function flushPendingSaves(){
 
 // try to flush when browser regains connectivity
 window.addEventListener('online', ()=>{ console.log('Browser online — flushing pending saves'); flushPendingSaves(); });
+
+// --- Small debug panel to inspect cache/pending queue and trigger flush ---
+function renderDebugPanel(){
+  // avoid creating twice
+  if(document.getElementById('debug-panel')) return;
+  const panel = document.createElement('div');
+  panel.id = 'debug-panel';
+  panel.style.position = 'fixed';
+  panel.style.right = '10px';
+  panel.style.bottom = '10px';
+  panel.style.width = '320px';
+  panel.style.maxHeight = '40vh';
+  panel.style.overflow = 'auto';
+  panel.style.background = 'rgba(17,24,39,0.95)';
+  panel.style.color = '#fff';
+  panel.style.fontSize = '12px';
+  panel.style.padding = '10px';
+  panel.style.borderRadius = '8px';
+  panel.style.boxShadow = '0 6px 18px rgba(0,0,0,0.4)';
+  panel.style.zIndex = 9999;
+
+  panel.innerHTML = `
+    <div style="font-weight:600;margin-bottom:6px">Debug · Sync & Cache</div>
+    <div><strong>UID:</strong> <span id="debug-uid">(not signed)</span></div>
+    <div><strong>Cached progress:</strong><pre id="debug-cached" style="white-space:pre-wrap;background:#0f172a;padding:6px;border-radius:4px;margin:6px 0;max-height:120px;overflow:auto"></pre></div>
+    <div><strong>Pending saves:</strong> <span id="debug-pending-count">0</span></div>
+    <pre id="debug-pending" style="white-space:pre-wrap;background:#0f172a;padding:6px;border-radius:4px;margin:6px 0;max-height:120px;overflow:auto"></pre>
+    <div style="display:flex;gap:6px;margin-top:6px"><button id="debug-flush" class="btn small">Flush Now</button><button id="debug-clear" class="btn small">Clear Pending</button></div>
+    <div style="margin-top:6px;color:#94a3b8;font-size:11px" id="debug-status">status: idle</div>
+  `;
+
+  document.body.appendChild(panel);
+
+  function refreshDebug(){
+    const uid = (currentUser && currentUser.uid) || (auth && auth.currentUser && auth.currentUser.uid) || null;
+    document.getElementById('debug-uid').textContent = uid || '(not signed)';
+    const cached = uid ? readFromLocalCache('cached_progress_'+uid) : null;
+    document.getElementById('debug-cached').textContent = cached ? JSON.stringify(cached, null, 2) : '(none)';
+    const pending = readFromLocalCache('pending_saves') || [];
+    document.getElementById('debug-pending-count').textContent = pending.length;
+    document.getElementById('debug-pending').textContent = pending.length ? JSON.stringify(pending, null, 2) : '(none)';
+  }
+
+  document.getElementById('debug-flush').addEventListener('click', async ()=>{
+    document.getElementById('debug-status').textContent = 'status: flushing...';
+    try{ await flushPendingSaves(); document.getElementById('debug-status').textContent = 'status: flush complete'; }
+    catch(e){ document.getElementById('debug-status').textContent = 'status: flush error'; console.error(e); }
+    refreshDebug();
+    setTimeout(()=>{ document.getElementById('debug-status').textContent = 'status: idle'; }, 1500);
+  });
+
+  document.getElementById('debug-clear').addEventListener('click', ()=>{
+    saveToLocalCache('pending_saves', []); refreshDebug();
+  });
+
+  // refresh periodically
+  refreshDebug();
+  setInterval(refreshDebug, 2500);
+}
 
 // Apply loaded preferences to UI controls (if present). Called after loadProgress and when modules render.
 function applyUserPreferences(){
