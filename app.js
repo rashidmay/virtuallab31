@@ -138,6 +138,19 @@ async function init(){
   // render a small debug panel for cache/queue/uid information
   renderDebugPanel();
 
+  // Expose debug helpers to window so testing from DevTools Console is possible
+  try{
+    window.saveProgress = saveProgress;
+    window.flushPendingSaves = flushPendingSaves;
+    window._debugState = ()=>({
+      firebaseLoaded, 
+      uid: (currentUser && currentUser.uid) || (auth && auth.currentUser && auth.currentUser.uid) || null,
+      localState,
+      pending: readFromLocalCache('pending_saves') || [],
+      logs: readFromLocalCache('save_logs') || []
+    });
+  }catch(e){/* ignore in environments where window not writable */}
+
   // (POV control moved into physics module UI)
 
 }
