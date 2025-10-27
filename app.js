@@ -340,6 +340,43 @@ async function simulateProjectile(ctx, canvas, angle, v, g=9.8, mass=1.0){
 // --- Progress UI and Firestore save/load ---
 function updateProgressUI(){ progressJson.textContent = JSON.stringify(localState, null, 2); }
 
+// Local cache helpers and offline queue
+function saveToLocalCache(key, obj){
+  try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(e){ console.warn('localStorage set failed', e); }
+}
+function readFromLocalCache(key){
+  try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }catch(e){ console.warn('localStorage read failed', e); return null; }
+}
+function enqueuePendingSave(item){
+  try{
+    const q = readFromLocalCache('pending_saves') || [];
+    q.push(item);
+    saveToLocalCache('pending_saves', q);
+  }catch(e){ console.warn('enqueuePendingSave failed', e); }
+}
+async function flushPendingSaves(){
+  if(!navigator.onLine) return;
+  const q = readFromLocalCache('pending_saves') || [];
+  if(!q.length) return;
+  // attempt to save each item
+  const remaining = [];
+  for(const item of q){
+    try{
+      // call saveProgress which will attempt Firestore write
+      await saveProgress(item.moduleKey, item.data);
+      // after successful save, also store cached_progress_<uid>
+      if(item.uid) saveToLocalCache('cached_progress_'+item.uid, localState);
+    }catch(e){
+      console.warn('flushPendingSaves: retry failed for', item, e);
+      remaining.push(item);
+    }
+  }
+  saveToLocalCache('pending_saves', remaining);
+}
+
+// try to flush when browser regains connectivity
+window.addEventListener('online', ()=>{ console.log('Browser online — flushing pending saves'); flushPendingSaves(); });
+
 // Apply loaded preferences to UI controls (if present). Called after loadProgress and when modules render.
 function applyUserPreferences(){
   try{
@@ -376,15 +413,39 @@ async function saveProgress(moduleKey, data){
   const userRef = doc(db, 'users', uid);
   // write partial update to user doc under field 'progress'
   const payload = { [moduleKey]: data, lastUpdated: Date.now() };
-  try{ await setDoc(userRef, { progress: payload }, { merge: true }); console.log('Saved', payload); }
-  catch(e){ console.error('Save error', e); }
+  try{
+    await setDoc(userRef, { progress: payload }, { merge: true });
+    console.log('Saved', payload);
+    // update local cache copy of the full localState so offline loads can use it
+    try{ saveToLocalCache('cached_progress_'+uid, localState); }catch(e){/*noop*/}
+    return payload;
+  }catch(e){
+    console.error('Save error', e);
+    // If offline or transient, queue the save and persist local copy
+    const isOffline = (!navigator.onLine) || (e && e.message && e.message.toLowerCase().includes('client is offline')) || (e && e.code === 'unavailable');
+    // Always save to local cache so UI can recover
+    try{ saveToLocalCache('cached_progress_'+uid, localState); }catch(ex){}
+    if(isOffline){
+      enqueuePendingSave({ uid, moduleKey, data });
+      console.warn('Save queued (offline). It will flush when online.');
+    }
+    throw e;
+  }
 }
+
 
 async function loadProgress(){
   if(!firebaseLoaded) return alert('Firebase belum terhubung');
   if(!currentUser) return alert('Silakan masuk terlebih dahulu');
+  const uid = currentUser.uid;
+  // If offline, fall back to cached local copy
+  if(!navigator.onLine){
+    const cached = readFromLocalCache('cached_progress_'+uid);
+    if(cached){ Object.assign(localState, cached); updateProgressUI(); applyUserPreferences(); alert('Sedang offline — memuat progress dari cache lokal.'); return; }
+    return alert('Sedang offline dan tidak ada cache lokal.');
+  }
   const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
-  const userRef = doc(db, 'users', currentUser.uid);
+  const userRef = doc(db, 'users', uid);
   try{
     const snap = await getDoc(userRef);
     if(snap.exists()){
@@ -395,10 +456,21 @@ async function loadProgress(){
         updateProgressUI();
         // apply any loaded preferences to controls
         applyUserPreferences();
+        // cache remote copy locally
+        try{ saveToLocalCache('cached_progress_'+uid, data.progress); }catch(e){}
         alert('Progress dimuat dari Firestore.');
       } else alert('Belum ada progress di server.');
     } else alert('Tidak ada dokumen user.');
-  }catch(e){console.error(e); alert('Load error:'+e.message)}
+  }catch(e){
+    console.error(e);
+    // if client offline error, try local cache
+    const msg = e && e.message ? e.message.toLowerCase() : '';
+    if(msg.includes('client is offline') || e.code === 'unavailable'){
+      const cached = readFromLocalCache('cached_progress_'+uid);
+      if(cached){ Object.assign(localState, cached); updateProgressUI(); applyUserPreferences(); alert('Gagal ambil dari server — memuat cache lokal.'); return; }
+    }
+    alert('Load error:'+ (e.message||e));
+  }
 }
 
 // initial UI (update called in init)
