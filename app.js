@@ -46,22 +46,32 @@ async function tryInitFirebase(){
   }
 }
 
-// UI refs (grab from DOM)
-const btnSignIn = document.getElementById('btn-signin');
-const btnSignOut = document.getElementById('btn-signout');
-const userInfo = document.getElementById('user-info');
-const moduleArea = document.getElementById('module-area');
-const moduleBtns = document.querySelectorAll('.module-btn');
-const progressJson = document.getElementById('progress-json');
-const btnSaveLocal = document.getElementById('btn-save-local');
-const btnLoadLocal = document.getElementById('btn-load-local');
+// UI refs (will be grabbed after DOM is ready)
+let btnSignIn;
+let btnSignOut;
+let userInfo;
+let moduleArea;
+let moduleBtns;
+let progressJson;
+let btnSaveLocal;
+let btnLoadLocal;
 
 let currentUser = null;
 let localState = { physics: {} };
 
 // We'll initialize Firebase (if possible) then wire UI. Use an init wrapper so a failed
 // dynamic import won't prevent the rest of the UI from working.
-(async function init(){
+async function init(){
+  // ensure DOM refs are captured after DOM is ready
+  btnSignIn = document.getElementById('btn-signin');
+  btnSignOut = document.getElementById('btn-signout');
+  userInfo = document.getElementById('user-info');
+  moduleArea = document.getElementById('module-area');
+  moduleBtns = document.querySelectorAll('.module-btn');
+  progressJson = document.getElementById('progress-json');
+  btnSaveLocal = document.getElementById('btn-save-local');
+  btnLoadLocal = document.getElementById('btn-load-local');
+
   const modules = await tryInitFirebase();
 
   // Local helper wrappers which only call Firebase if loaded
@@ -130,7 +140,15 @@ let localState = { physics: {} };
 
   // (POV control moved into physics module UI)
 
-})();
+}
+
+// run init after DOM is parsed to ensure elements exist
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', init);
+} else {
+  // DOM already ready
+  init();
+}
 
 // --- Physics: Projectile simulation on canvas ---
 function renderPhysics(){
