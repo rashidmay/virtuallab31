@@ -358,7 +358,17 @@ async function simulateProjectile(ctx, canvas, angle, v, g=9.8, mass=1.0){
 
 
 // --- Progress UI and Firestore save/load ---
-function updateProgressUI(){ progressJson.textContent = JSON.stringify(localState, null, 2); }
+function updateProgressUI(){
+  try{
+    if(progressJson) {
+      progressJson.textContent = JSON.stringify(localState, null, 2);
+    } else {
+      // progressJson not yet available (DOM not ready) — keep a compact cache in localStorage for debugging
+      try{ saveToLocalCache('cached_progress_preview', localState); }catch(e){}
+      console.log('updateProgressUI: progressJson element not ready, cached preview saved');
+    }
+  }catch(e){ console.warn('updateProgressUI failed', e); }
+}
 
 // Local cache helpers and offline queue
 function saveToLocalCache(key, obj){
