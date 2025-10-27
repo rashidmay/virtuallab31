@@ -3,16 +3,17 @@
 // (offline, network, or MIME/CSP issues), the rest of the UI remains functional and
 // will show helpful messages when Firebase features are attempted.
 
-// --- CONFIG: ganti dengan config Anda ---
+// --- CONFIG: web app Firebase (paste from Firebase Console) ---
 const firebaseConfig = {
-  apiKey: "REPLACE_ME",
-  authDomain: "REPLACE_ME",
-  projectId: "REPLACE_ME",
-  storageBucket: "REPLACE_ME",
-  messagingSenderId: "REPLACE_ME",
-  appId: "REPLACE_ME"
+  apiKey: "AIzaSyC_H8MZEO8EkAHzG6z4YZkBFmvI1jynroo",
+  authDomain: "virtuallab31.firebaseapp.com",
+  projectId: "virtuallab31",
+  storageBucket: "virtuallab31.firebasestorage.app",
+  messagingSenderId: "199857718937",
+  appId: "1:199857718937:web:c64f2d8e14b6fb90481a08",
+  measurementId: "G-8W3S1GWNZV"
 };
-// ----------------------------------------
+// --------------------------------------------------------------
 
 // Firebase runtime references (may remain null if dynamic import fails)
 let auth = null;
