@@ -171,10 +171,31 @@ function renderPhysics(){
   const povCheckbox = document.getElementById('pov-checkbox');
   if(povCheckbox) povCheckbox.addEventListener('change', (e)=>{ followBall = e.target.checked; });
 
-  angleEl.addEventListener('input', ()=> angleVal.textContent = angleEl.value);
-  speedEl.addEventListener('input', ()=> speedVal.textContent = speedEl.value);
-  gravityEl.addEventListener('input', ()=> gravityVal.textContent = gravityEl.value);
-  massEl.addEventListener('input', ()=> massVal.textContent = massEl.value);
+  // Debounced auto-save for user preferences (angle, speed, gravity, mass)
+  let _savePrefsTimer = null;
+  function getPhysicsPrefs(){
+    return {
+      angle: Number(angleEl.value),
+      speed: Number(speedEl.value),
+      gravity: Number(gravityEl.value),
+      mass: Number(massEl.value)
+    };
+  }
+  function scheduleSavePrefs(delay=700){
+    if(_savePrefsTimer) clearTimeout(_savePrefsTimer);
+    _savePrefsTimer = setTimeout(()=>{
+      const prefs = getPhysicsPrefs();
+      // store locally as well
+      localState.physicsPrefs = prefs;
+      updateProgressUI();
+      if(firebaseLoaded) saveProgress('physicsPrefs', prefs);
+    }, delay);
+  }
+
+  angleEl.addEventListener('input', ()=>{ angleVal.textContent = angleEl.value; scheduleSavePrefs(); });
+  speedEl.addEventListener('input', ()=>{ speedVal.textContent = speedEl.value; scheduleSavePrefs(); });
+  gravityEl.addEventListener('input', ()=>{ gravityVal.textContent = gravityEl.value; scheduleSavePrefs(); });
+  massEl.addEventListener('input', ()=>{ massVal.textContent = massEl.value; scheduleSavePrefs(); });
 
   runBtn.addEventListener('click', ()=>{
     const angle = Number(angleEl.value) * Math.PI/180;
@@ -191,6 +212,8 @@ function renderPhysics(){
       if(firebaseLoaded && currentUser) saveProgress('physics', result);
     });
   });
+  // Apply any loaded preferences into the controls after rendering
+  applyUserPreferences();
 }
 async function simulateProjectile(ctx, canvas, angle, v, g=9.8, mass=1.0){
   // physics with optional quadratic air drag: Fd = -k * v * |v|
@@ -317,6 +340,33 @@ async function simulateProjectile(ctx, canvas, angle, v, g=9.8, mass=1.0){
 // --- Progress UI and Firestore save/load ---
 function updateProgressUI(){ progressJson.textContent = JSON.stringify(localState, null, 2); }
 
+// Apply loaded preferences to UI controls (if present). Called after loadProgress and when modules render.
+function applyUserPreferences(){
+  try{
+    // physics prefs may be stored under localState.physicsPrefs or last result
+    const prefs = (localState && (localState.physicsPrefs || (localState.physics && localState.physics.last && {
+      angle: Number(localState.physics.last.angleDeg || localState.physics.last.angle || 45),
+      speed: Number(localState.physics.last.speed || 25),
+      gravity: Number(localState.physics.last.gravity || 9.8),
+      mass: Number(localState.physics.last.mass || 1.0)
+    }))) || null;
+    if(!prefs) return;
+    // set inputs if present
+    const angleEl = document.getElementById('angle');
+    const angleVal = document.getElementById('angle-val');
+    const speedEl = document.getElementById('speed');
+    const speedVal = document.getElementById('speed-val');
+    const gravityEl = document.getElementById('gravity');
+    const gravityVal = document.getElementById('g-val');
+    const massEl = document.getElementById('mass');
+    const massVal = document.getElementById('mass-val');
+    if(angleEl && typeof prefs.angle !== 'undefined'){ angleEl.value = prefs.angle; if(angleVal) angleVal.textContent = prefs.angle; }
+    if(speedEl && typeof prefs.speed !== 'undefined'){ speedEl.value = prefs.speed; if(speedVal) speedVal.textContent = prefs.speed; }
+    if(gravityEl && typeof prefs.gravity !== 'undefined'){ gravityEl.value = prefs.gravity; if(gravityVal) gravityVal.textContent = prefs.gravity; }
+    if(massEl && typeof prefs.mass !== 'undefined'){ massEl.value = prefs.mass; if(massVal) massVal.textContent = prefs.mass; }
+  }catch(e){ console.warn('applyUserPreferences failed', e); }
+}
+
 async function saveProgress(moduleKey, data){
   if(!firebaseLoaded) return console.warn('Firebase not loaded');
   // prefer explicit currentUser variable, but fall back to auth.currentUser to avoid timing/race issues
@@ -343,6 +393,8 @@ async function loadProgress(){
         // merge remote into local
         Object.assign(localState, data.progress);
         updateProgressUI();
+        // apply any loaded preferences to controls
+        applyUserPreferences();
         alert('Progress dimuat dari Firestore.');
       } else alert('Belum ada progress di server.');
     } else alert('Tidak ada dokumen user.');
