@@ -349,11 +349,20 @@ function saveToLocalCache(key, obj){
 function readFromLocalCache(key){
   try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }catch(e){ console.warn('localStorage read failed', e); return null; }
 }
+function pushSaveLog(entry){
+  try{
+    const logs = readFromLocalCache('save_logs') || [];
+    logs.unshift({ ts: Date.now(), entry });
+    // keep small
+    saveToLocalCache('save_logs', logs.slice(0,50));
+  }catch(e){ console.warn('pushSaveLog failed', e); }
+}
 function enqueuePendingSave(item){
   try{
     const q = readFromLocalCache('pending_saves') || [];
-    q.push(item);
+    q.push(Object.assign({ts: Date.now()}, item));
     saveToLocalCache('pending_saves', q);
+    pushSaveLog({ type: 'queued', item });
   }catch(e){ console.warn('enqueuePendingSave failed', e); }
 }
 async function flushPendingSaves(){
@@ -368,8 +377,10 @@ async function flushPendingSaves(){
       await saveProgress(item.moduleKey, item.data);
       // after successful save, also store cached_progress_<uid>
       if(item.uid) saveToLocalCache('cached_progress_'+item.uid, localState);
+      pushSaveLog({ type: 'flushed', item });
     }catch(e){
       console.warn('flushPendingSaves: retry failed for', item, e);
+      pushSaveLog({ type: 'flush-failed', item, error: (e && e.message) || e });
       remaining.push(item);
     }
   }
@@ -405,6 +416,7 @@ function renderDebugPanel(){
     <div><strong>Cached progress:</strong><pre id="debug-cached" style="white-space:pre-wrap;background:#0f172a;padding:6px;border-radius:4px;margin:6px 0;max-height:120px;overflow:auto"></pre></div>
     <div><strong>Pending saves:</strong> <span id="debug-pending-count">0</span></div>
     <pre id="debug-pending" style="white-space:pre-wrap;background:#0f172a;padding:6px;border-radius:4px;margin:6px 0;max-height:120px;overflow:auto"></pre>
+    <div style="margin-top:6px"><strong>Save logs:</strong><pre id="debug-logs" style="white-space:pre-wrap;background:#071024;padding:6px;border-radius:4px;margin:6px 0;max-height:120px;overflow:auto"></pre></div>
     <div style="display:flex;gap:6px;margin-top:6px"><button id="debug-flush" class="btn small">Flush Now</button><button id="debug-clear" class="btn small">Clear Pending</button></div>
     <div style="margin-top:6px;color:#94a3b8;font-size:11px" id="debug-status">status: idle</div>
   `;
@@ -419,6 +431,8 @@ function renderDebugPanel(){
     const pending = readFromLocalCache('pending_saves') || [];
     document.getElementById('debug-pending-count').textContent = pending.length;
     document.getElementById('debug-pending').textContent = pending.length ? JSON.stringify(pending, null, 2) : '(none)';
+    const logs = readFromLocalCache('save_logs') || [];
+    document.getElementById('debug-logs').textContent = logs.length ? JSON.stringify(logs.slice(0,10), null, 2) : '(none)';
   }
 
   document.getElementById('debug-flush').addEventListener('click', async ()=>{
@@ -475,13 +489,16 @@ async function saveProgress(moduleKey, data){
   // write partial update to user doc under field 'progress'
   const payload = { [moduleKey]: data, lastUpdated: Date.now() };
   try{
+    pushSaveLog({ type: 'attempt', uid, moduleKey, data, online: navigator.onLine });
     await setDoc(userRef, { progress: payload }, { merge: true });
     console.log('Saved', payload);
+    pushSaveLog({ type: 'saved', uid, moduleKey, payload });
     // update local cache copy of the full localState so offline loads can use it
     try{ saveToLocalCache('cached_progress_'+uid, localState); }catch(e){/*noop*/}
     return payload;
   }catch(e){
     console.error('Save error', e);
+    pushSaveLog({ type: 'save-error', uid, moduleKey, error: (e && e.message) || e });
     // If offline or transient, queue the save and persist local copy
     const isOffline = (!navigator.onLine) || (e && e.message && e.message.toLowerCase().includes('client is offline')) || (e && e.code === 'unavailable');
     // Always save to local cache so UI can recover
@@ -555,4 +572,6 @@ async function loadProgress(){
 }
 
 // initial UI (update called in init)
+// Ensure debug panel is created even if init() fails to run for some reason
+try{ window.addEventListener('load', ()=>{ try{ renderDebugPanel(); }catch(e){} }); }catch(e){}
 console.log('App initialized.');
