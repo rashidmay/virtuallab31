@@ -85,8 +85,17 @@ let localState = { physics: {} };
     // subscribe to auth state changes
     const { onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js');
     onAuthStateChanged(auth, user =>{
-      if(user){ currentUser = user; userInfo.textContent = user.displayName || user.email; btnSignIn.classList.add('hidden'); btnSignOut.classList.remove('hidden'); }
-      else{ currentUser = null; userInfo.textContent = 'Tidak masuk'; btnSignIn.classList.remove('hidden'); btnSignOut.classList.add('hidden'); }
+      if(user){
+        currentUser = user;
+        userInfo.textContent = user.displayName || user.email;
+        btnSignIn.classList.add('hidden'); btnSignOut.classList.remove('hidden');
+        // Automatically load saved preferences for this user
+        try{ loadProgress(); }catch(e){ console.warn('Auto-load progress failed', e); }
+      }
+      else{
+        currentUser = null;
+        userInfo.textContent = 'Tidak masuk'; btnSignIn.classList.remove('hidden'); btnSignOut.classList.add('hidden');
+      }
     });
   } else {
     // If Firebase not loaded, show offline hints
@@ -310,9 +319,11 @@ function updateProgressUI(){ progressJson.textContent = JSON.stringify(localStat
 
 async function saveProgress(moduleKey, data){
   if(!firebaseLoaded) return console.warn('Firebase not loaded');
-  if(!currentUser) return console.warn('Not signed in');
+  // prefer explicit currentUser variable, but fall back to auth.currentUser to avoid timing/race issues
+  const uid = (currentUser && currentUser.uid) || (auth && auth.currentUser && auth.currentUser.uid);
+  if(!uid) return console.warn('Not signed in (no uid)');
   const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
-  const userRef = doc(db, 'users', currentUser.uid);
+  const userRef = doc(db, 'users', uid);
   // write partial update to user doc under field 'progress'
   const payload = { [moduleKey]: data, lastUpdated: Date.now() };
   try{ await setDoc(userRef, { progress: payload }, { merge: true }); console.log('Saved', payload); }
