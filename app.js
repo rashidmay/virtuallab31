@@ -520,8 +520,28 @@ async function loadProgress(){
         // cache remote copy locally
         try{ saveToLocalCache('cached_progress_'+uid, data.progress); }catch(e){}
         alert('Progress dimuat dari Firestore.');
-      } else alert('Belum ada progress di server.');
-    } else alert('Tidak ada dokumen user.');
+      } else {
+        // No progress field in doc — treat as empty but keep document
+        console.log('User document exists but no progress field.');
+      }
+    } else {
+      // No user document yet. If we have a local cache or localState prefs, apply them
+      const cached = readFromLocalCache('cached_progress_'+uid);
+      if(cached){
+        Object.assign(localState, cached);
+        updateProgressUI();
+        applyUserPreferences();
+        alert('Tidak ada dokumen user di server — memuat progress dari cache lokal.');
+      } else {
+        // nothing on server and no cache. Do not alert to avoid confusion.
+        console.log('No user document found for', uid);
+        // if we already have local prefs (user changed sliders before creating doc), create the user doc now
+        if(localState && localState.physicsPrefs){
+          try{ await saveProgress('physicsPrefs', localState.physicsPrefs); console.log('Initial user doc created from local prefs'); }
+          catch(e){ console.warn('Failed to create initial user doc', e); }
+        }
+      }
+    }
   }catch(e){
     console.error(e);
     // if client offline error, try local cache
