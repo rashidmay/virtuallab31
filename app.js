@@ -20,6 +20,8 @@ let auth = null;
 let db = null;
 let provider = null;
 let firebaseLoaded = false;
+// Toggle debug panel rendering. Change to true during development to show the panel.
+const DEBUG_PANEL = false;
 // animation handle so we can cancel previous animation when re-running
 let _animHandle = null;
 // camera follow flag
@@ -154,8 +156,8 @@ async function init(){
 
   // Kick off by showing welcome
   updateProgressUI();
-  // render a small debug panel for cache/queue/uid information
-  renderDebugPanel();
+  // render a small debug panel for cache/queue/uid information (disabled by default)
+  if(DEBUG_PANEL) renderDebugPanel();
 
   // Expose debug helpers to window so testing from DevTools Console is possible
   try{
@@ -632,6 +634,6 @@ async function loadProgress(){
 }
 
 // initial UI (update called in init)
-// Ensure debug panel is created even if init() fails to run for some reason
-try{ window.addEventListener('load', ()=>{ try{ renderDebugPanel(); }catch(e){} }); }catch(e){}
+// Optionally create debug panel on window load if DEBUG_PANEL is enabled
+try{ if(DEBUG_PANEL) window.addEventListener('load', ()=>{ try{ renderDebugPanel(); }catch(e){} }); }catch(e){}
 console.log('App initialized.');
