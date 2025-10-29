@@ -1,9 +1,3 @@
-// app.js - frontend interactivity and Firebase integration (ES modules)
-// This file now tries to load Firebase modules dynamically. If the CDN modules fail to load
-// (offline, network, or MIME/CSP issues), the rest of the UI remains functional and
-// will show helpful messages when Firebase features are attempted.
-
-// --- CONFIG: web app Firebase (paste from Firebase Console) ---
 const firebaseConfig = {
   apiKey: "AIzaSyC_H8MZEO8EkAHzG6z4YZkBFmvI1jynroo",
   authDomain: "virtuallab31.firebaseapp.com",
@@ -13,18 +7,13 @@ const firebaseConfig = {
   appId: "1:199857718937:web:c64f2d8e14b6fb90481a08",
   measurementId: "G-8W3S1GWNZV"
 };
-// --------------------------------------------------------------
 
-// Firebase runtime references (may remain null if dynamic import fails)
 let auth = null;
 let db = null;
 let provider = null;
 let firebaseLoaded = false;
-// Toggle debug panel rendering. Change to true during development to show the panel.
 const DEBUG_PANEL = false;
-// animation handle so we can cancel previous animation when re-running
 let _animHandle = null;
-// camera follow flag
 let followBall = false;
 
 async function tryInitFirebase(){
@@ -36,8 +25,6 @@ async function tryInitFirebase(){
     auth = authModule.getAuth(app);
     provider = new authModule.GoogleAuthProvider();
     db = firestoreModule.getFirestore(app);
-    // Bring selected functions into top-level scope for convenience
-    // We'll reference the authModule / firestoreModule functions directly where needed.
     firebaseLoaded = true;
     console.log('Firebase modules loaded dynamically');
     return { authModule, firestoreModule };
@@ -48,7 +35,6 @@ async function tryInitFirebase(){
   }
 }
 
-// UI refs (will be grabbed after DOM is ready)
 let btnSignIn;
 let btnSignOut;
 let userInfo;
@@ -61,10 +47,7 @@ let btnLoadLocal;
 let currentUser = null;
 let localState = { physics: {} };
 
-// We'll initialize Firebase (if possible) then wire UI. Use an init wrapper so a failed
-// dynamic import won't prevent the rest of the UI from working.
 async function init(){
-  // ensure DOM refs are captured after DOM is ready (guard every lookup)
   try{
     btnSignIn = document.getElementById('btn-signin');
     btnSignOut = document.getElementById('btn-signout');
@@ -80,7 +63,6 @@ async function init(){
 
   const modules = await tryInitFirebase();
 
-  // Local helper wrappers which only call Firebase if loaded
   const safeSignIn = async ()=>{
     if(!firebaseLoaded) return alert('Firebase belum terhubung — periksa koneksi atau konfigurasi.');
     try{ const { signInWithPopup } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js');
@@ -93,13 +75,11 @@ async function init(){
     catch(e){ console.error(e); }
   };
 
-  // Attach auth handlers (guard each element)
   try{
     if(btnSignIn){ btnSignIn.addEventListener('click', safeSignIn); } else console.warn('btnSignIn element not found');
     if(btnSignOut){ btnSignOut.addEventListener('click', safeSignOut); } else console.warn('btnSignOut element not found');
 
     if(firebaseLoaded){
-    // subscribe to auth state changes
     const { onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js');
     onAuthStateChanged(auth, user =>{
       if(user){
@@ -107,7 +87,6 @@ async function init(){
         if(userInfo) userInfo.textContent = user.displayName || user.email;
         if(btnSignIn) btnSignIn.classList.add('hidden');
         if(btnSignOut) btnSignOut.classList.remove('hidden');
-        // Automatically load saved preferences for this user
         try{ loadProgress(); }catch(e){ console.warn('Auto-load progress failed', e); }
       }
       else{
@@ -118,13 +97,11 @@ async function init(){
       }
     });
   } else {
-    // If Firebase not loaded, show offline hints
     if(userInfo) userInfo.textContent = 'Firebase tidak tersedia';
     if(btnSignOut) btnSignOut.classList.add('hidden');
   }
   }catch(e){ console.error('Error wiring auth handlers', e, { btnSignIn, btnSignOut, userInfo }); }
 
-  // Module switching
   try{
     moduleBtns = moduleBtns || [];
     if(moduleBtns && moduleBtns.length && moduleBtns.forEach) {
@@ -133,12 +110,10 @@ async function init(){
   }catch(e){ console.error('Error wiring module buttons', e, { moduleBtns }); }
 
   function loadModule(name){
-    // Clear module area
     moduleArea.innerHTML = '';
     if(name==='physics') renderPhysics();
   }
 
-  // Attach save/load handlers (safe wrappers)
   try{
     if(btnSaveLocal){
       btnSaveLocal.addEventListener('click', ()=>{
@@ -154,12 +129,8 @@ async function init(){
     if(btnLoadLocal){ btnLoadLocal.addEventListener('click', ()=> loadProgress()); } else console.warn('btnLoadLocal not found');
   }catch(e){ console.error('Error wiring save/load buttons', e, { btnSaveLocal, btnLoadLocal }); }
 
-  // Kick off by showing welcome
   updateProgressUI();
-  // render a small debug panel for cache/queue/uid information (disabled by default)
   if(DEBUG_PANEL) renderDebugPanel();
-
-  // Expose debug helpers to window so testing from DevTools Console is possible
   try{
     window.saveProgress = saveProgress;
     window.flushPendingSaves = flushPendingSaves;
@@ -170,21 +141,16 @@ async function init(){
       pending: readFromLocalCache('pending_saves') || [],
       logs: readFromLocalCache('save_logs') || []
     });
-  }catch(e){/* ignore in environments where window not writable */}
-
-  // (POV control moved into physics module UI)
+  }catch(e){}
 
 }
 
-// run init after DOM is parsed to ensure elements exist
 if (document.readyState === 'loading') {
   window.addEventListener('DOMContentLoaded', init);
 } else {
-  // DOM already ready
   init();
 }
 
-// --- Physics: Projectile simulation on canvas ---
 function renderPhysics(){
   const container = document.createElement('div'); container.className='panel';
   container.innerHTML = `
@@ -221,11 +187,9 @@ function renderPhysics(){
   const canvas = document.getElementById('physics-canvas');
   const ctx = canvas.getContext('2d');
 
-  // hook up POV checkbox inside the module
   const povCheckbox = document.getElementById('pov-checkbox');
   if(povCheckbox) povCheckbox.addEventListener('change', (e)=>{ followBall = e.target.checked; });
 
-  // Debounced auto-save for user preferences (angle, speed, gravity, mass)
   let _savePrefsTimer = null;
   function getPhysicsPrefs(){
     return {
@@ -239,7 +203,7 @@ function renderPhysics(){
     if(_savePrefsTimer) clearTimeout(_savePrefsTimer);
     _savePrefsTimer = setTimeout(()=>{
       const prefs = getPhysicsPrefs();
-      // store locally as well
+
       localState.physicsPrefs = prefs;
       updateProgressUI();
       if(firebaseLoaded) saveProgress('physicsPrefs', prefs);
@@ -257,7 +221,6 @@ function renderPhysics(){
     const g = Number(gravityEl.value);
     const mass = Number(massEl.value);
     simulateProjectile(ctx, canvas, angle, v, g, mass).then(result =>{
-      // include the parameters in saved result
       result.gravity = g;
       result.mass = mass;
       result.weight = (mass * g).toFixed(2);
@@ -266,35 +229,26 @@ function renderPhysics(){
       if(firebaseLoaded && currentUser) saveProgress('physics', result);
     });
   });
-  // Apply any loaded preferences into the controls after rendering
   applyUserPreferences();
 }
 async function simulateProjectile(ctx, canvas, angle, v, g=9.8, mass=1.0){
-  // physics with optional quadratic air drag: Fd = -k * v * |v|
-  // a = F/m -> drag accel = -(k/m) * v * |v|
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  // scale meters -> px
-  const scale = 5; // px per meter (simple)
-  // initial velocities
+  const scale = 5; 
   let vx = v * Math.cos(angle);
   let vy = v * Math.sin(angle);
-  const k = 0.02; // drag coefficient (tunable)
-  const dt = 0.02; // time step
+  const k = 0.02; 
+  const dt = 0.02; 
   let t = 0;
   const points = [];
   let maxY = 0;
-  // simulate using simple Euler integration for position and velocity
-  let px = 0; // position x (m)
-  let py = 0; // position y (m)
+  let px = 0; 
+  let py = 0; 
   let steps = 0;
   const maxSteps = 20000;
   while(steps < maxSteps){
     const speed = Math.sqrt(vx*vx + vy*vy);
-    // drag accelerations (quadratic)
     const ax = (speed > 0) ? ( - (k/mass) * speed * vx ) : 0;
     const ay = -g + (speed > 0 ? ( - (k/mass) * speed * vy ) : 0);
-
-    // integrate
     vx += ax * dt;
     vy += ay * dt;
     px += vx * dt;
@@ -303,38 +257,30 @@ async function simulateProjectile(ctx, canvas, angle, v, g=9.8, mass=1.0){
 
     if(py > maxY) maxY = py;
 
-    // record point for drawing (convert to canvas coords)
     points.push({ x: px*scale + 20, y: canvas.height - (py*scale + 20) });
 
-    // stop when projectile hits ground (y <= 0) after it has been launched
     if(py <= 0 && t > 0.02) break;
     steps++;
   }
 
-  // draw path
   ctx.beginPath(); ctx.lineWidth = 2; ctx.strokeStyle = '#7dd3fc';
   points.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
   ctx.stroke();
-  // start simple animation of a ball following the computed points
+
   if(_animHandle) cancelAnimationFrame(_animHandle);
   const ballRadius = 8;
-  // draw a simple ground (rectangle + horizon line) at world y = canvas.height - 20
+
   function drawGround(ctx, canvas){
     const groundY = canvas.height - 20;
-    // fill ground
     const ggrad = ctx.createLinearGradient(0, groundY, 0, canvas.height);
     ggrad.addColorStop(0, '#6b4226');
     ggrad.addColorStop(1, '#3b2a1a');
     ctx.fillStyle = ggrad;
-    // draw a wide ground area to cover translated view
     ctx.fillRect(-3000, groundY, canvas.width + 6000, canvas.height - groundY + 40);
-    // horizon line
     ctx.beginPath(); ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 2; ctx.moveTo(-3000, groundY); ctx.lineTo(canvas.width+3000, groundY); ctx.stroke();
   }
   function drawPath(){
-    // draw ground first
     drawGround(ctx, canvas);
-    // draw trajectory
     ctx.beginPath(); ctx.lineWidth = 2; ctx.strokeStyle = '#7dd3fc';
     points.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
     ctx.stroke();
@@ -343,10 +289,8 @@ async function simulateProjectile(ctx, canvas, angle, v, g=9.8, mass=1.0){
     let i = 0;
     const total = points.length;
     function frame(){
-      // clear canvas
       ctx.clearRect(0,0,canvas.width,canvas.height);
 
-      // Determine translation to center the ball if followBall is enabled
       let tx = 0, ty = 0;
       if(followBall && i < total){
         const pcenter = points[i];
@@ -357,10 +301,8 @@ async function simulateProjectile(ctx, canvas, angle, v, g=9.8, mass=1.0){
       ctx.save();
       if(tx !== 0 || ty !== 0) ctx.translate(tx, ty);
 
-  // draw path (translated if followBall)
   drawPath();
 
-      // draw ball at current point (if exists)
       if(i < total){
         const p = points[i];
         ctx.beginPath(); ctx.fillStyle = '#fb7185'; ctx.strokeStyle = '#ffffff22';
@@ -379,7 +321,6 @@ async function simulateProjectile(ctx, canvas, angle, v, g=9.8, mass=1.0){
     }
     frame();
   }
-  // draw initial static path then animate
   drawPath();
   animateBall();
 
@@ -389,22 +330,17 @@ async function simulateProjectile(ctx, canvas, angle, v, g=9.8, mass=1.0){
   return { angleDeg: (angle*180/Math.PI).toFixed(1), speed: v, flightTime, range, maxHeight };
 }
 
-
-
-// --- Progress UI and Firestore save/load ---
 function updateProgressUI(){
   try{
     if(progressJson) {
       progressJson.textContent = JSON.stringify(localState, null, 2);
     } else {
-      // progressJson not yet available (DOM not ready) — keep a compact cache in localStorage for debugging
       try{ saveToLocalCache('cached_progress_preview', localState); }catch(e){}
       console.log('updateProgressUI: progressJson element not ready, cached preview saved');
     }
   }catch(e){ console.warn('updateProgressUI failed', e); }
 }
 
-// Local cache helpers and offline queue
 function saveToLocalCache(key, obj){
   try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(e){ console.warn('localStorage set failed', e); }
 }
@@ -415,7 +351,6 @@ function pushSaveLog(entry){
   try{
     const logs = readFromLocalCache('save_logs') || [];
     logs.unshift({ ts: Date.now(), entry });
-    // keep small
     saveToLocalCache('save_logs', logs.slice(0,50));
   }catch(e){ console.warn('pushSaveLog failed', e); }
 }
@@ -431,13 +366,10 @@ async function flushPendingSaves(){
   if(!navigator.onLine) return;
   const q = readFromLocalCache('pending_saves') || [];
   if(!q.length) return;
-  // attempt to save each item
   const remaining = [];
   for(const item of q){
     try{
-      // call saveProgress which will attempt Firestore write
       await saveProgress(item.moduleKey, item.data);
-      // after successful save, also store cached_progress_<uid>
       if(item.uid) saveToLocalCache('cached_progress_'+item.uid, localState);
       pushSaveLog({ type: 'flushed', item });
     }catch(e){
@@ -449,12 +381,9 @@ async function flushPendingSaves(){
   saveToLocalCache('pending_saves', remaining);
 }
 
-// try to flush when browser regains connectivity
 window.addEventListener('online', ()=>{ console.log('Browser online — flushing pending saves'); flushPendingSaves(); });
 
-// --- Small debug panel to inspect cache/pending queue and trigger flush ---
 function renderDebugPanel(){
-  // avoid creating twice
   if(document.getElementById('debug-panel')) return;
   const panel = document.createElement('div');
   panel.id = 'debug-panel';
@@ -509,15 +438,12 @@ function renderDebugPanel(){
     saveToLocalCache('pending_saves', []); refreshDebug();
   });
 
-  // refresh periodically
   refreshDebug();
   setInterval(refreshDebug, 2500);
 }
 
-// Apply loaded preferences to UI controls (if present). Called after loadProgress and when modules render.
 function applyUserPreferences(){
   try{
-    // physics prefs may be stored under localState.physicsPrefs or last result
     const prefs = (localState && (localState.physicsPrefs || (localState.physics && localState.physics.last && {
       angle: Number(localState.physics.last.angleDeg || localState.physics.last.angle || 45),
       speed: Number(localState.physics.last.speed || 25),
@@ -525,7 +451,6 @@ function applyUserPreferences(){
       mass: Number(localState.physics.last.mass || 1.0)
     }))) || null;
     if(!prefs) return;
-    // set inputs if present
     const angleEl = document.getElementById('angle');
     const angleVal = document.getElementById('angle-val');
     const speedEl = document.getElementById('speed');
@@ -543,27 +468,22 @@ function applyUserPreferences(){
 
 async function saveProgress(moduleKey, data){
   if(!firebaseLoaded) return console.warn('Firebase not loaded');
-  // prefer explicit currentUser variable, but fall back to auth.currentUser to avoid timing/race issues
   const uid = ((typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || (auth && auth.currentUser && auth.currentUser.uid));
   if(!uid) return console.warn('Not signed in (no uid)');
   const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js');
   const userRef = doc(db, 'users', uid);
-  // write partial update to user doc under field 'progress'
   const payload = { [moduleKey]: data, lastUpdated: Date.now() };
   try{
     pushSaveLog({ type: 'attempt', uid, moduleKey, data, online: navigator.onLine });
     await setDoc(userRef, { progress: payload }, { merge: true });
     console.log('Saved', payload);
     pushSaveLog({ type: 'saved', uid, moduleKey, payload });
-    // update local cache copy of the full localState so offline loads can use it
-    try{ saveToLocalCache('cached_progress_'+uid, localState); }catch(e){/*noop*/}
+    try{ saveToLocalCache('cached_progress_'+uid, localState); }catch(e){}
     return payload;
   }catch(e){
     console.error('Save error', e);
     pushSaveLog({ type: 'save-error', uid, moduleKey, error: (e && e.message) || e });
-    // If offline or transient, queue the save and persist local copy
     const isOffline = (!navigator.onLine) || (e && e.message && e.message.toLowerCase().includes('client is offline')) || (e && e.code === 'unavailable');
-    // Always save to local cache so UI can recover
     try{ saveToLocalCache('cached_progress_'+uid, localState); }catch(ex){}
     if(isOffline){
       enqueuePendingSave({ uid, moduleKey, data });
@@ -578,7 +498,6 @@ async function loadProgress(){
   if(!firebaseLoaded) return alert('Firebase belum terhubung');
   const uid = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || (auth && auth.currentUser && auth.currentUser.uid);
   if(!uid) return alert('Silakan masuk terlebih dahulu');
-  // If offline, fall back to cached local copy
   if(!navigator.onLine){
     const cached = readFromLocalCache('cached_progress_'+uid);
     if(cached){ Object.assign(localState, cached); updateProgressUI(); applyUserPreferences(); alert('Sedang offline — memuat progress dari cache lokal.'); return; }
@@ -591,20 +510,15 @@ async function loadProgress(){
     if(snap.exists()){
       const data = snap.data();
       if(data.progress) {
-        // merge remote into local
         Object.assign(localState, data.progress);
         updateProgressUI();
-        // apply any loaded preferences to controls
         applyUserPreferences();
-        // cache remote copy locally
         try{ saveToLocalCache('cached_progress_'+uid, data.progress); }catch(e){}
         alert('Progress dimuat dari Firestore.');
       } else {
-        // No progress field in doc — treat as empty but keep document
         console.log('User document exists but no progress field.');
       }
     } else {
-      // No user document yet. If we have a local cache or localState prefs, apply them
       const cached = readFromLocalCache('cached_progress_'+uid);
       if(cached){
         Object.assign(localState, cached);
@@ -612,9 +526,7 @@ async function loadProgress(){
         applyUserPreferences();
         alert('Tidak ada dokumen user di server — memuat progress dari cache lokal.');
       } else {
-        // nothing on server and no cache. Do not alert to avoid confusion.
         console.log('No user document found for', uid);
-        // if we already have local prefs (user changed sliders before creating doc), create the user doc now
         if(localState && localState.physicsPrefs){
           try{ await saveProgress('physicsPrefs', localState.physicsPrefs); console.log('Initial user doc created from local prefs'); }
           catch(e){ console.warn('Failed to create initial user doc', e); }
@@ -623,7 +535,6 @@ async function loadProgress(){
     }
   }catch(e){
     console.error(e);
-    // if client offline error, try local cache
     const msg = e && e.message ? e.message.toLowerCase() : '';
     if(msg.includes('client is offline') || e.code === 'unavailable'){
       const cached = readFromLocalCache('cached_progress_'+uid);
@@ -633,7 +544,6 @@ async function loadProgress(){
   }
 }
 
-// initial UI (update called in init)
-// Optionally create debug panel on window load if DEBUG_PANEL is enabled
 try{ if(DEBUG_PANEL) window.addEventListener('load', ()=>{ try{ renderDebugPanel(); }catch(e){} }); }catch(e){}
+
 console.log('App initialized.');
