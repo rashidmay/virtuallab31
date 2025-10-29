@@ -1,8 +1,3 @@
-<#
-PowerShell deploy script (Windows)
-Usage:
-  .\deploy.ps1 -projectId your-project-id
-#>
 param(
   [string]$projectId = "your-project-id"
 )
@@ -26,5 +21,6 @@ Pop-Location
 
 Write-Host "Deploying Firestore rules and Cloud Functions..."
 firebase deploy --only firestore,functions
+
 
 Write-Host "(Optional) Deploy hosting with: firebase deploy --only hosting"
