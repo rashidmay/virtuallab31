@@ -1,9 +1,3 @@
-/**
- * Example Firebase Cloud Function
- * Trigger: on write to users/{uid} document
- * Purpose: compute a small summary (modules completed, last timestamps) and store under users/{uid}.summary
- */
-
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
@@ -16,10 +10,9 @@ exports.processUserProgress = functions.firestore
     try{
       const uid = context.params.uid;
       const after = change.after.exists ? change.after.data() : null;
-      if(!after) return null; // document deleted
+      if(!after) return null;
 
-      const progress = after.progress || after; // support both shapes
-      // compute summary
+      const progress = after.progress || after;
       const modules = ['physics','chemistry','comp','math','language'];
       let completed = 0;
       const details = {};
@@ -35,10 +28,10 @@ exports.processUserProgress = functions.firestore
         processedAt: Date.now()
       };
 
-      // write summary back to user doc (merge)
       const userRef = db.doc(`users/${uid}`);
       await userRef.set({ summary }, { merge: true });
       console.log(`Processed progress for ${uid}`, summary);
       return null;
     }catch(err){ console.error('processUserProgress error', err); return null; }
+
   });
