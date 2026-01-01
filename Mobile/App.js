@@ -50,7 +50,7 @@ export default function App() {
   }
 
   function fitPointsToSvg(rawPoints, w, h, padding = 20) {
-    if (!rawPoints || rawPoints.length === 0) return { d: '', cx: 0, cy: 0, r: 0 };
+    if (!rawPoints || rawPoints.length === 0) return { d: '', cx: 0, cy: 0, r: 0, mapped: [] };
     // find extents
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     rawPoints.forEach(p => {
@@ -77,7 +77,7 @@ export default function App() {
     // create path d
     const d = mapped.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
     const last = mapped[mapped.length - 1];
-    return { d, cx: last.x, cy: last.y, r: Math.max(4, Math.min(10, (w + h) / 100)) };
+    return { d, cx: last.x, cy: last.y, r: Math.max(4, Math.min(10, (w + h) / 100)), mapped };
   }
 
   function onRun() {
@@ -87,6 +87,45 @@ export default function App() {
   }
 
   const pathInfo = useMemo(() => fitPointsToSvg(points, canvasW, canvasH), [points, canvasW, canvasH]);
+
+  // Animation state & refs
+  const animRef = React.useRef(null);
+  const mountedRef = React.useRef(true);
+  const [currentIdx, setCurrentIdx] = useState(-1);
+
+  // start animation whenever mapped points change
+  React.useEffect(() => {
+    mountedRef.current = true;
+    // cancel previous animation
+    if (animRef.current) {
+      cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+    }
+    setCurrentIdx(-1);
+    const mapped = pathInfo && pathInfo.mapped ? pathInfo.mapped : [];
+    if (!mapped || mapped.length === 0) return;
+
+    // animate along mapped points
+    let i = 0;
+    function frame() {
+      if (!mountedRef.current) return;
+      setCurrentIdx(i);
+      i += 1;
+      if (i < mapped.length) {
+        animRef.current = requestAnimationFrame(frame);
+      } else {
+        animRef.current = null;
+      }
+    }
+    // start animation
+    animRef.current = requestAnimationFrame(frame);
+
+    return () => {
+      mountedRef.current = false;
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+    };
+  }, [pathInfo && pathInfo.mapped]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -161,7 +200,15 @@ export default function App() {
           {/* path */}
           {pathInfo.d ? <Path d={pathInfo.d} stroke="#7dd3fc" strokeWidth={2} fill="none" /> : null}
           {/* ball */}
-          {pathInfo.d ? <Circle cx={pathInfo.cx} cy={pathInfo.cy} r={pathInfo.r} fill="#fb7185" /> : null}
+          {/* animated ball: use current index if animating, otherwise show last point */}
+          {pathInfo.mapped && pathInfo.mapped.length ? (
+            (() => {
+              const mp = pathInfo.mapped;
+              const idx = currentIdx >= 0 && currentIdx < mp.length ? currentIdx : mp.length - 1;
+              const p = mp[idx];
+              return <Circle cx={p.x} cy={p.y} r={pathInfo.r} fill="#fb7185" />;
+            })()
+          ) : null}
         </Svg>
       </View>
 
@@ -229,4 +276,3 @@ const styles = StyleSheet.create({
     maxWidth: 640,
   },
 });
-
