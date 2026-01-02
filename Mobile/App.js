@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions, Switch } from 'react-native';
 import Slider from '@react-native-community/slider';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
@@ -17,6 +17,7 @@ export default function App() {
   const [mass, setMass] = useState(1.0); // kg
   const [points, setPoints] = useState([]);
   const [stats, setStats] = useState(null);
+  const [followBall, setFollowBall] = useState(false);
 
   function simulateProjectile(angleDeg, v, g = 9.8, massVal = 1.0) {
     const angle = (angleDeg * Math.PI) / 180;
@@ -136,6 +137,12 @@ export default function App() {
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.homeTitle}>virtuallab31</Text>
 
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.signInBtn} onPress={() => {}}>
+            <Text style={styles.signInBtnText}>Sign In</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.homeCardWrap}>
           <TouchableOpacity
             style={[styles.homeCard, styles.homeCardPrimary]}
@@ -167,6 +174,12 @@ export default function App() {
         </TouchableOpacity>
         <Text style={styles.title}>Gerak Proyektil</Text>
         <View style={{ width: 70 }} />
+      </View>
+
+      <View style={styles.headerActions}>
+        <TouchableOpacity style={styles.signInBtn} onPress={() => {}}>
+          <Text style={styles.signInBtnText}>Sign In</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.controls}>
@@ -226,6 +239,16 @@ export default function App() {
           />
         </View>
 
+        <View style={styles.followRow}>
+          <Text style={styles.followLabel}>Follow Ball</Text>
+          <Switch
+            value={followBall}
+            onValueChange={setFollowBall}
+            trackColor={{ false: '#334155', true: '#2563eb' }}
+            thumbColor={followBall ? '#e5e7eb' : '#cbd5e1'}
+          />
+        </View>
+
         <TouchableOpacity style={styles.runBtn} onPress={onRun}>
           <Text style={styles.runBtnText}>Jalankan</Text>
         </TouchableOpacity>
@@ -233,20 +256,38 @@ export default function App() {
 
       <View style={styles.canvasWrap}>
         <Svg width={canvasW} height={canvasH} style={styles.canvas}>
-          {/* background ground */}
-          <Rect x={0} y={canvasH - 18} width={canvasW} height={18} fill="#6b4226" />
-          {/* path */}
-          {pathInfo.d ? <Path d={pathInfo.d} stroke="#7dd3fc" strokeWidth={2} fill="none" /> : null}
-          {/* ball */}
-          {/* animated ball: use current index if animating, otherwise show last point */}
-          {pathInfo.mapped && pathInfo.mapped.length ? (
-            (() => {
-              const mp = pathInfo.mapped;
-              const idx = currentIdx >= 0 && currentIdx < mp.length ? currentIdx : mp.length - 1;
-              const p = mp[idx];
-              return <Circle cx={p.x} cy={p.y} r={pathInfo.r} fill="#fb7185" />;
-            })()
-          ) : null}
+          {(() => {
+            const mapped = pathInfo.mapped || [];
+            if (!mapped.length) {
+              // default ground when no sim yet
+              return <Rect x={0} y={canvasH - 18} width={canvasW} height={18} fill="#6b4226" />;
+            }
+
+            const idx = currentIdx >= 0 && currentIdx < mapped.length ? currentIdx : mapped.length - 1;
+            const p = mapped[idx];
+
+            // camera translate like web: keep ball centered
+            const tx = followBall ? (canvasW / 2 - p.x) : 0;
+            const ty = followBall ? (canvasH / 2 - p.y) : 0;
+
+            const groundY = canvasH - 18;
+
+            const dShifted = mapped
+              .map((pt, i) => `${i === 0 ? 'M' : 'L'} ${(pt.x + tx).toFixed(2)} ${(pt.y + ty).toFixed(2)}`)
+              .join(' ');
+
+            return (
+              <>
+                {/* ground translated too (similar infinite ground in web) */}
+                <Rect x={-6000} y={groundY + ty} width={12000} height={100} fill="#6b4226" />
+                {/* horizon line */}
+                <Path d={`M ${-6000} ${(groundY + ty).toFixed(2)} L ${6000} ${(groundY + ty).toFixed(2)}`} stroke="#1f2937" strokeWidth={2} />
+
+                <Path d={dShifted} stroke="#7dd3fc" strokeWidth={2} fill="none" />
+                <Circle cx={p.x + tx} cy={p.y + ty} r={pathInfo.r} fill="#fb7185" />
+              </>
+            );
+          })()}
         </Svg>
       </View>
 
@@ -331,6 +372,26 @@ const styles = StyleSheet.create({
     color: '#e5e7eb',
   },
 
+  // header actions row (below header)
+  headerActions: {
+    width: '100%',
+    maxWidth: 640,
+    alignItems: 'flex-end',
+    marginBottom: 10,
+  },
+  signInBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  signInBtnText: {
+    color: '#e5e7eb',
+    fontWeight: '700',
+  },
+
   controls: {
     width: '100%',
     maxWidth: 640,
@@ -380,5 +441,16 @@ const styles = StyleSheet.create({
     borderColor: '#1f2937',
     borderRadius: 12,
     padding: 12,
+  },
+  followRow: {
+    marginTop: 6,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  followLabel: {
+    color: '#e5e7eb',
+    fontWeight: '600',
   },
 });

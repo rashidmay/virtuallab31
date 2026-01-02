@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/Mobile/app.json">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/Mobile/app.json" />
+              <option name="updatedContent" value="{&#10;  &quot;expo&quot;: {&#10;    &quot;name&quot;: &quot;virtuallab-mobile&quot;,&#10;    &quot;slug&quot;: &quot;virtuallab-mobile&quot;,&#10;    &quot;sdkVersion&quot;: &quot;48.0.0&quot;,&#10;    &quot;platforms&quot;: [&quot;ios&quot;, &quot;android&quot;, &quot;web&quot;],&#10;    &quot;web&quot;: {&#10;      &quot;bundler&quot;: &quot;webpack&quot;&#10;    }&#10;  }&#10;}&#10;" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

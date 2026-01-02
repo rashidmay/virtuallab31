@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "virtuallab-mobile",
+    "slug": "virtuallab-mobile",
+    "sdkVersion": "48.0.0",
+    "platforms": ["ios", "android", "web"],
+    "web": {
+      "bundler": "webpack"
+    }
+  }
+}
+
