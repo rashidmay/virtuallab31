@@ -8,6 +8,9 @@ export default function App() {
   const canvasW = Math.min(width - 24, 360);
   const canvasH = 240;
 
+  // Simple navigation (no react-navigation dependency)
+  const [screen, setScreen] = useState('home'); // 'home' | 'proyektil'
+
   const [angle, setAngle] = useState(45); // degrees
   const [speed, setSpeed] = useState(25); // m/s
   const [gravity, setGravity] = useState(9.8); // m/s2
@@ -127,9 +130,44 @@ export default function App() {
     };
   }, [pathInfo && pathInfo.mapped]);
 
+  // Home screen
+  if (screen === 'home') {
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.homeTitle}>virtuallab31</Text>
+
+        <View style={styles.homeCardWrap}>
+          <TouchableOpacity
+            style={[styles.homeCard, styles.homeCardPrimary]}
+            onPress={() => setScreen('proyektil')}
+          >
+            <Text style={styles.homeCardTitle}>Modul Proyektil</Text>
+            <Text style={styles.homeCardSubtitle}>Simulasi gerak proyektil</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.homeCard, styles.homeCardDisabled]}
+            activeOpacity={1}
+            onPress={() => {}}
+          >
+            <Text style={styles.homeCardTitle}>Modul lainnya</Text>
+            <Text style={styles.homeCardSubtitle}>Coming soon</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  // Proyektil screen
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Gerak Proyektil</Text>
+      <View style={styles.proHeader}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => setScreen('home')}>
+          <Text style={styles.backBtnText}>← Home</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Gerak Proyektil</Text>
+        <View style={{ width: 70 }} />
+      </View>
 
       <View style={styles.controls}>
         <View style={styles.controlRow}>
@@ -213,9 +251,9 @@ export default function App() {
       </View>
 
       <View style={styles.stats}>
-        <Text>Waktu Terbang: {stats ? stats.flightTime + ' s' : '-'}</Text>
-        <Text>Jarak: {stats ? stats.range + ' m' : '-'}</Text>
-        <Text>Tinggi Maks: {stats ? stats.maxHeight + ' m' : '-'}</Text>
+        <Text style={{ color: '#e5e7eb' }}>Waktu Terbang: {stats ? stats.flightTime + ' s' : '-'}</Text>
+        <Text style={{ color: '#e5e7eb' }}>Jarak: {stats ? stats.range + ' m' : '-'}</Text>
+        <Text style={{ color: '#e5e7eb' }}>Tinggi Maks: {stats ? stats.maxHeight + ' m' : '-'}</Text>
       </View>
 
     </ScrollView>
@@ -226,14 +264,73 @@ const styles = StyleSheet.create({
   container: {
     padding: 12,
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#0f172a', // match web dark background
     flexGrow: 1,
   },
   title: {
     fontSize: 20,
     fontWeight: '600',
     marginVertical: 8,
+    color: '#e5e7eb',
   },
+
+  // Home
+  homeTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    marginVertical: 18,
+    textTransform: 'lowercase',
+    color: '#e5e7eb',
+  },
+  homeCardWrap: {
+    width: '100%',
+    maxWidth: 640,
+    gap: 12,
+  },
+  homeCard: {
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+  },
+  homeCardPrimary: {
+    backgroundColor: '#0b1f3a',
+    borderColor: '#7dd3fc',
+  },
+  homeCardDisabled: {
+    backgroundColor: '#111827',
+    borderColor: '#334155',
+  },
+  homeCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+    color: '#e5e7eb',
+  },
+  homeCardSubtitle: {
+    color: '#94a3b8',
+  },
+
+  // Proyektil header
+  proHeader: {
+    width: '100%',
+    maxWidth: 640,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  backBtnText: {
+    fontWeight: '600',
+    color: '#e5e7eb',
+  },
+
   controls: {
     width: '100%',
     maxWidth: 640,
@@ -244,6 +341,7 @@ const styles = StyleSheet.create({
   },
   label: {
     marginBottom: 6,
+    color: '#e5e7eb',
   },
   slider: {
     width: '100%',
@@ -257,22 +355,30 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   runBtnText: {
-    color: '#fff',
-    fontWeight: '600',
+    color: '#0b1220',
+    fontWeight: '700',
   },
   canvasWrap: {
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
     marginTop: 12,
-    backgroundColor: '#0f172a',
-    padding: 6,
+    backgroundColor: '#071024',
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#1f2937',
   },
   canvas: {
     backgroundColor: '#001219',
+    borderRadius: 8,
   },
   stats: {
     marginTop: 12,
     width: '100%',
     maxWidth: 640,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    borderRadius: 12,
+    padding: 12,
   },
 });
