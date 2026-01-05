@@ -2,6 +2,9 @@
 - 18222014 Rashid May
 - 18222038 Qady Zakkka Raymaula
 
+Tugas UAS 
+.\virtuallab31\Mobile
+
 Virtual Lab ini merupakan alat pembantu belajar bergabagi subjek, namun saat ini hanya ada modul Fisika Gerak Proyektil
 Fitur yang ada adalah :
   - Simulasi visual bagaimana sebuah proyektil bergerak dengan variabel sudut, kecepatan, gravitasi, dan massa proyektil yang dapat diatur
